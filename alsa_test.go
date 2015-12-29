@@ -8,40 +8,47 @@ import (
 )
 
 func TestCardNext(t *testing.T) {
-	card, err := alsa.CardNext(-1)
-
 	t.Log("list of", alsa.PcmStreamName(alsa.SND_PCM_STREAM_CAPTURE), "hardware devices")
 
-	for card >= 0 {
-		if err != nil {
-			break
-		}
+	card, err := alsa.CardNext(-1)
+	if err != nil {
+		t.Error(err)
+	}
 
+	for card >= 0 {
 		name := fmt.Sprintf("hw:%d", card)
 		t.Log(name)
 
 		ctl, err := alsa.CtlOpen(name, 0)
 		if err != nil {
-			break
+			t.Error(err)
+		}
+
+		info, err := alsa.NewCtlCardInfo(ctl)
+		if err != nil {
+			t.Error(err)
+		}
+		t.Logf("info %p\n", info)
+
+		dev, err := alsa.CtlPcmNextDevice(ctl, -1)
+		if err != nil {
+			t.Error(err)
+		}
+
+		for dev >= 0 {
+			dev, err = alsa.CtlPcmNextDevice(ctl, dev)
+			if err != nil {
+				t.Error(err)
+			}
 		}
 
 		if err = alsa.CtlClose(ctl); err != nil {
-			break
+			t.Error(err)
 		}
+
 		card, err = alsa.CardNext(card)
+		if err != nil {
+			t.Error(err)
+		}
 	}
-
-	if err != nil {
-		t.Error(err)
-	}
-
-	if _, err = alsa.CtlOpen("unknown", 0); err == nil {
-		t.Error("expected error, but got none")
-	}
-
-	t.Logf(
-		"expected CtlOpen err %q alsa strerror %q",
-		err,
-		alsa.StrError(err.(alsa.Failure).Code()),
-	)
 }

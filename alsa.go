@@ -2,6 +2,7 @@ package alsa
 
 /*
 #include <alsa/asoundlib.h>
+#include "alsa.h"
 #cgo pkg-config: alsa
 */
 import "C"
@@ -17,8 +18,6 @@ const (
 	SND_CTL_ASYNC    = C.SND_CTL_ASYNC
 )
 
-type Ctl C.snd_ctl_t
-
 type Failure interface {
 	Code() int
 }
@@ -31,6 +30,23 @@ type err struct {
 func (e *err) Error() string {
 	return fmt.Sprintf("%v, code %d", e.reason, e.code)
 }
+
+type CtlCardInfo C.snd_ctl_card_info_t
+
+func NewCtlCardInfo(ctl *Ctl) (*CtlCardInfo, error) {
+	var info *C.snd_ctl_card_info_t
+
+	if ret := C._new_snd_ctl_card_info(
+		(*C.snd_ctl_t)(ctl),
+		&info,
+	); ret < 0 {
+		return nil, &err{"control card info error", int(ret)}
+	}
+
+	return (*CtlCardInfo)(info), nil
+}
+
+type Ctl C.snd_ctl_t
 
 func (e *err) Code() int {
 	return e.code
@@ -66,6 +82,19 @@ func CardNext(card int) (int, error) {
 	}
 
 	return int(c), nil
+}
+
+func CtlPcmNextDevice(ctl *Ctl, dev int) (int, error) {
+	cdev := C.int(dev)
+
+	if ret := C.snd_ctl_pcm_next_device(
+		(*C.snd_ctl_t)(ctl),
+		&cdev,
+	); ret < 0 {
+		return -1, &err{"control pcm next device error", int(ret)}
+	}
+
+	return int(cdev), nil
 }
 
 func PcmStreamName(stream int) string {
