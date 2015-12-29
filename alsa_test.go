@@ -1,25 +1,47 @@
 package alsa_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/s-urbaniak/alsa"
 )
 
 func TestCardNext(t *testing.T) {
-	var err error
-	card := -1
+	card, err := alsa.CardNext(-1)
 
-	for {
-		card, err = alsa.CardNext(card)
+	t.Log("list of", alsa.PcmStreamName(alsa.SND_PCM_STREAM_CAPTURE), "hardware devices")
+
+	for card >= 0 {
 		if err != nil {
-			t.Error(err)
-		}
-
-		if card < 0 {
 			break
 		}
+
+		name := fmt.Sprintf("hw:%d", card)
+		t.Log(name)
+
+		ctl, err := alsa.CtlOpen(name, 0)
+		if err != nil {
+			break
+		}
+
+		if err = alsa.CtlClose(ctl); err != nil {
+			break
+		}
+		card, err = alsa.CardNext(card)
 	}
 
-	t.Log(alsa.PcmStreamName(alsa.SND_PCM_STREAM_CAPTURE))
+	if err != nil {
+		t.Error(err)
+	}
+
+	if _, err = alsa.CtlOpen("unknown", 0); err == nil {
+		t.Error("expected error, but got none")
+	}
+
+	t.Logf(
+		"expected CtlOpen err %q alsa strerror %q",
+		err,
+		alsa.StrError(err.(alsa.Failure).Code()),
+	)
 }
